@@ -3,4 +3,11 @@ __pycache__/
 point_e_model_cache/
 .ipynb_checkpoints/
 .DS_Store
+*.env
+*.ply
+*.obj
+*.png
+*.mtl
+*.jpeg
+*.jpg
 
