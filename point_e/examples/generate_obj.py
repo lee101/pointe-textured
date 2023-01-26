@@ -8,6 +8,7 @@ from tqdm.auto import tqdm
 from point_e.diffusion.configs import DIFFUSION_CONFIGS, diffusion_from_config
 from point_e.diffusion.sampler import PointCloudSampler
 from point_e.examples import point_to_mesh
+from point_e.examples.align_clouds import align_two_point_clouds
 from point_e.examples.utils import convert_float_to_bfloat16
 from point_e.models.download import load_checkpoint
 from point_e.models.configs import MODEL_CONFIGS, model_from_config
@@ -63,15 +64,32 @@ def image_to_mesh(image, grid_size=3, save_file_name='mesh.ply', text=""):
         with torch.inference_mode():
             # for x in itertools.islice(tqdm(sampler.sample_batch_progressive(batch_size=8, model_kwargs=dict(images=images))), 60): # randomly fails after 65 samples with OOM
             model_kwargs = dict(images=images)
-            if text:
-                model_kwargs['text'] = text
+            # if text:
+            #     model_kwargs['text'] = text
+            i = 0
             for x in itertools.islice(
                     tqdm(sampler.sample_batch_progressive(batch_size=1, model_kwargs=model_kwargs)),
-                    60):  # randomly fails after 65 samples with OOM
-                samples = x
-    pc = sampler.output_to_point_clouds(samples)[0]
+                    190):  # randomly fails after 65 samples with OOM
+                # if i > 18:
+                #     # prev_pointcloud = sampler.output_to_point_clouds(samples)[0]
+                #     current_sample = sampler.output_to_point_clouds(x)[0]
+                #     combined = align_two_point_clouds(samples, current_sample)
+                #     samples = combined
+                # else:
+                #     samples = sampler.output_to_point_clouds(x)[0]
+                samples = sampler.output_to_point_clouds(x)[0]
+                # 65 and 130 are the key areas
+                # fig = plot_point_cloud(samples, grid_size=grid_size,
+                #                        fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
+                # fig.savefig(f'pics/{img_name_no_extension}_point_cloud{i}.png')
+                    # todo combine to pc after the loop again instead
+
+                i+=1
+
+    # pc = sampler.output_to_point_clouds(samples)[0]
+    pc = samples
     fig = plot_point_cloud(pc, grid_size=grid_size, fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
-    fig.savefig(f'{img_name_no_extension}_point_cloud.png')
+    fig.savefig(f'pics/{img_name_no_extension}_point_cloud.png')
     point_to_mesh.convert_point_cloud_to_mesh(pc, 128, save_file_name)
 
 
