@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 
 from point_e.examples.draw_triangles import draw_triangles
-from point_e.examples.meshlab_add_color import add_color_save_meshlab
+from point_e.examples.meshlab_add_color import add_color_save_meshlab, meshlab_process
 from point_e.examples.write_obj import write_obj_with_colors_texture
 from point_e.models.download import load_checkpoint
 from point_e.models.configs import MODEL_CONFIGS, model_from_config
@@ -99,6 +99,19 @@ def texture_surf_using_colored_pcd(surf, pc):
     return surf
 
 
+def fix_normals(save_file_name):
+    """opens the file and auto fixes the normals"""
+    mesh = pv.read(save_file_name)
+    mesh = mesh.compute_normals(auto_orient_normals=True)
+    pl = pv.Plotter()
+    # save with colors
+
+    _ = pl.add_mesh(mesh, show_edges=True, rgb=True) # show_edges=True
+    save_file_name = save_file_name + "5.obj"
+    pl.export_obj(save_file_name)
+    # mesh.save(save_file_name)
+
+
 def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.npz', grid_size=32, save_file_name
                                 ='corgi_mesh.ply'):
     if isinstance(filename_or_pointcloud, str):
@@ -113,6 +126,22 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
     # shell = volume.extract_geometry()
     # shell.plot()
     surf = cloud.reconstruct_surface()
+    # close mesh
+    surf = surf.fill_holes(hole_size=1000)
+    # remove duplicate points
+    #surf = surf.remove_duplicate_points()
+
+    # remove forests
+    surf = surf.clean(tolerance=0.0001)
+    # remove non manifold edges
+    #surf = surf.remove_non_manifold_edges()
+    # smooth mesh
+    surf = surf.smooth(n_iter=4, relaxation_factor=0.02)
+    # fix normals
+    surf = surf.compute_normals(auto_orient_normals=True)
+    # check normals for being flipped
+    # todo code and flip_normals if need be
+
     # create mtl file
     # colors = np.array([pc.channels['R'], pc.channels['G'], pc.channels['B']])
     # # texture = np.zeros((sphere.n_points, 3), np.uint8)
@@ -133,7 +162,10 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
     # faces = np.array(faces).reshape(-1, 3)
     # delete every third face
 
-    add_color_save_meshlab(colors, normals, textured_surf.points, faces, save_file_name)
+    # add_color_save_meshlab(colors, normals, textured_surf.points, faces, save_file_name)
+    save_an_obj(textured_surf, save_file_name)
+    meshlab_process(colors, normals, textured_surf.points, faces, save_file_name)
+    # fix_normals(save_file_name)
     # save_obj(surf, save_file_name)
     # shell.save(save_file_name)
 
@@ -304,9 +336,8 @@ def vista_mesh_to_open3d_mesh_and_texture(vista_mesh):
 #     _ = pl.add_mesh(vista_object, scalars='colors', show_edges=True, rgb=True) # show_edges=True
 #     save_file_name = save_file_name + ".obj"
 #     pl.export_obj(save_file_name)
-def save_ply(vista_object, save_file_name):
+def save_an_obj(vista_object, save_file_name):
     # convert to open3d mesh
-    mesh = vista_mesh_to_open3d_mesh_and_texture(vista_object)
     pl = pv.Plotter()
     # save with colors
 
@@ -380,49 +411,9 @@ def convert_point_cloud_to_mesh_oldb(filename_or_pointcloud='example_data/pc_cor
     o3d.io.write_triangle_mesh(save_file_name+"p_mesh_c.ply", p_mesh_crop)
     o3d.io.write_triangle_mesh(save_file_name+"bpa_mesh.ply", poisson_mesh)
 
-def convert_point_cloud_to_mesh_o3d(filename_or_pointcloud='example_data/pc_corgi.npz', grid_size=32, save_file_name
-                                ='corgi_mesh.ply'):
-    if isinstance(filename_or_pointcloud, str):
-        pc = PointCloud.load(filename_or_pointcloud)
-    else:
-        pc = filename_or_pointcloud
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pc.coords)
-    channels = np.array([pc.channels['R'], pc.channels['G'], pc.channels['B']])
-    channels = channels.transpose()
-    pcd.colors = o3d.utility.Vector3dVector(channels)
-    # infer normals from point cloud
-    pcd.estimate_normals()
-    poisson_mesh, densities = \
-    o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=8, width=0, scale=1.1, linear_fit=False)
-
-    print('visualize densities')
-    densities = np.asarray(densities)
-    density_colors = plt.get_cmap('plasma')(
-        (densities - densities.min()) / (densities.max() - densities.min()))
-    density_colors = density_colors[:, :3]
-    density_mesh = o3d.geometry.TriangleMesh()
-    density_mesh.vertices = poisson_mesh.vertices
-    density_mesh.triangles = poisson_mesh.triangles
-    density_mesh.triangle_normals = poisson_mesh.triangle_normals
-    density_mesh.vertex_colors = o3d.utility.Vector3dVector(density_colors)
-    # o3d.visualization.draw_geometries([density_mesh],
-    #                                   zoom=0.664,
-    #                                   front=[-0.4761, -0.4698, -0.7434],
-    #                                   lookat=[1.8900, 3.2596, 0.9284],
-    #                                   up=[0.2304, -0.8825, 0.4101])
-
-    #cropping
-    bbox = pcd.get_axis_aligned_bounding_box()
-    p_mesh_crop = poisson_mesh.crop(bbox)
-
-    # o3d.visualization.draw_geometries([p_mesh_crop])
-    o3d.io.write_triangle_mesh(save_file_name+"p_mesh_c.ply", p_mesh_crop)
-    o3d.io.write_triangle_mesh(save_file_name+"bpa_mesh.ply", poisson_mesh)
-
 
 if __name__ == '__main__':
     # convert_point_cloud_to_mesh()
-    convert_point_cloud_to_mesh(save_file_name='corgi_mesh_2.ply')
+    convert_point_cloud_to_mesh(save_file_name='corgi_mesh_4.ply')
     # convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_cube_stack.npz', grid_size=32)
     # convert_point_cloud_to_mesh_old(filename_or_pointcloud='example_data/pc_cube_stack.npz', grid_size=32)

@@ -2,6 +2,7 @@ import pymeshlab
 import pyvista as pv
 import numpy as np
 
+
 def pyvista_mesh_to_meshlab_mesh(mesh):
     # get points
     points = v.points
@@ -13,10 +14,28 @@ def pyvista_mesh_to_meshlab_mesh(mesh):
     colors = v.point_arrays['Colors']
     # save mesh
     return colors, normals, points, faces
+
+def load_mesh_into_meshlab(file_path):
+    # load mesh
+    ms = pymeshlab.MeshSet()
+    ms.load_new_mesh(file_path)
+    return ms
+
+
+def meshlab_process(colors, normals, points, faces, save_path):
+    ms = load_mesh_into_meshlab(save_path)
+    ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
+    # generate normals
+    # create texture using UV map and vertex colors
+    ms.compute_texmap_from_color(
+        textname=f"my_texture_name")  # textname will be filename of a png, should not be a full path
+    # texture file won't be saved until you save the mesh
+    # ms.save_current_mesh(save_path)
+    # save as obj
+    ms.save_current_mesh(save_path.replace(".ply", ".obj"))
+
 def add_color_save_meshlab(colors, normals, points, faces, save_path):
     # open obj file in meshlab
-    ms = pymeshlab.MeshSet()
-    ms.load_new_mesh('mesh.obj')
     # convert to numpy
     colors = np.array(colors)
     # add alpha channel
@@ -24,9 +43,9 @@ def add_color_save_meshlab(colors, normals, points, faces, save_path):
     normals = np.array(normals).astype(np.float64)
     points = np.array(points).astype(np.float64)
     faces = np.array(faces).astype(np.int32)
-    # m = pymeshlab.Mesh(points, v_normals_matrix=normals,
-    #                    # face_list_of_indicies=faces,
-    #                    v_color_matrix=colors / 255.0)  # color is N x 4 with alpha info
+    m = pymeshlab.Mesh(points, v_normals_matrix=normals,
+                       # face_list_of_indicies=faces,
+                       v_color_matrix=colors / 255.0)  # color is N x 4 with alpha info
     # # generate normals
     # # m.compute_vertex_normals()
     # # m.compute_per_vertex_normals()
@@ -44,11 +63,6 @@ def add_color_save_meshlab(colors, normals, points, faces, save_path):
     # ms.save_current_mesh(save_path)
     # save as obj
     ms.save_current_mesh(save_path.replace(".ply", ".obj"))
-
-
-
-
-
 
 
 if __name__ == "__main__":
