@@ -136,7 +136,7 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
     # remove non manifold edges
     #surf = surf.remove_non_manifold_edges()
     # smooth mesh
-    surf = surf.smooth(n_iter=4, relaxation_factor=0.02)
+    surf = surf.smooth(n_iter=10, relaxation_factor=0.1)
     # fix normals
     surf = surf.compute_normals(auto_orient_normals=True)
     # check normals for being flipped

@@ -88,7 +88,9 @@ def align_two_point_clouds(pcd1, pcd2):
     # o3d.visualization.draw_geometries([pcd1, pcd2])
 
     pc1 = convert_point_cloud_to_pcd(pcd1)
+    pc1.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
     pc2 = convert_point_cloud_to_pcd(pcd2)
+    pc2.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
 
     # print("Apply point-to-point ICP")
     # reg_p2p = o3d.registration.registration_icp(

@@ -1,5 +1,6 @@
 import argparse
 import itertools
+from pathlib import Path
 
 from PIL import Image
 import torch
@@ -39,22 +40,15 @@ upsampler_model.load_state_dict(load_checkpoint('upsample', device))
 
 
 def image_to_mesh(image, grid_size=3, save_file_name='mesh.ply', text=""):
-    sampler = PointCloudSampler(
-        device=device,
-        models=[base_model, upsampler_model],
-        diffusions=[base_diffusion, upsampler_diffusion],
-        num_points=[1024, 4096 - 1024],
-        aux_channels=['R', 'G', 'B'],
-        guidance_scale=[3.0, 3.0],
-    )
+
     # Load an image to condition on.
     img = Image.open(image)
     img_name_no_extension = image.split('.')[0]
     images = [img]
     index = 0
-    # while Path(f'{img_name_no_extension}{index}.png').exists():
-    #     images.append(Image.open(f'{img_name_no_extension}{index}.png'))
-    #     index += 1
+    while Path(f'{img_name_no_extension}{index}.png').exists():
+        images.append(Image.open(f'{img_name_no_extension}{index}.png'))
+        index += 1
     # # resize all images to 256
     # images = [img.resize((256, 256)) for img in images]
     # Produce a sample from the model.
@@ -63,32 +57,53 @@ def image_to_mesh(image, grid_size=3, save_file_name='mesh.ply', text=""):
     with torch.cuda.amp.autocast(dtype=torch.bfloat16):
         with torch.inference_mode():
             # for x in itertools.islice(tqdm(sampler.sample_batch_progressive(batch_size=8, model_kwargs=dict(images=images))), 60): # randomly fails after 65 samples with OOM
-            model_kwargs = dict(images=images)
-            # if text:
-            #     model_kwargs['text'] = text
-            i = 0
-            for x in itertools.islice(
-                    tqdm(sampler.sample_batch_progressive(batch_size=1, model_kwargs=model_kwargs)),
-                    190):  # randomly fails after 65 samples with OOM
-                # if i > 18:
-                #     # prev_pointcloud = sampler.output_to_point_clouds(samples)[0]
-                #     current_sample = sampler.output_to_point_clouds(x)[0]
-                #     combined = align_two_point_clouds(samples, current_sample)
-                #     samples = combined
-                # else:
-                #     samples = sampler.output_to_point_clouds(x)[0]
-                samples = sampler.output_to_point_clouds(x)[0]
-                # 65 and 130 are the key areas
-                # fig = plot_point_cloud(samples, grid_size=grid_size,
-                #                        fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
-                # fig.savefig(f'pics/{img_name_no_extension}_point_cloud{i}.png')
-                    # todo combine to pc after the loop again instead
+            current_pc = None
+            for img_idx in range(len(images)):
+                sampler = PointCloudSampler(
+                    device=device,
+                    models=[base_model, upsampler_model],
+                    diffusions=[base_diffusion, upsampler_diffusion],
+                    num_points=[1024, 4096 - 1024],
+                    aux_channels=['R', 'G', 'B'],
+                    guidance_scale=[3.0, 3.0],
+                )
+                model_kwargs = dict(images=[images[img_idx]])
+                # if text:
+                #     model_kwargs['text'] = text
+                i = 0
+                for x in itertools.islice(
+                        tqdm(sampler.sample_batch_progressive(batch_size=1, model_kwargs=model_kwargs)),
+                        190):  # randomly fails after 65 samples with OOM
+                    # if i > 125:
+                    #     # prev_pointcloud = sampler.output_to_point_clouds(samples)[0]
+                    #     current_sample = sampler.output_to_point_clouds(x)[0]
+                    #     combined = align_two_point_clouds(samples, current_sample)
+                    #     samples = combined
+                    # else:
+                    #     samples = sampler.output_to_point_clouds(x)[0]
+                    samples = sampler.output_to_point_clouds(x)[0]
+                    # 65 and 130 are the key areas
+                    # fig = plot_point_cloud(samples, grid_size=grid_size,
+                    #                        fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
+                    # fig.savefig(f'pics/{img_name_no_extension}_point_cloud{i}.png')
+                        # todo combine to pc after the loop again instead
 
-                i+=1
+                    i+=1
+                pc = samples
+
+                fig = plot_point_cloud(pc, grid_size=grid_size,
+                                       fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
+                img_name_no_extension = img_name_no_extension.split('/')[-1]
+                fig.savefig(f'pics/{img_name_no_extension}_point_cloud{img_idx}.png')
+
+                if current_pc is not None: # todo outlier removel? smart joining?
+                    pc = align_two_point_clouds(current_pc, pc)
+                current_pc = pc
 
     # pc = sampler.output_to_point_clouds(samples)[0]
     pc = samples
     fig = plot_point_cloud(pc, grid_size=grid_size, fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
+    img_name_no_extension = img_name_no_extension.split('/')[-1]
     fig.savefig(f'pics/{img_name_no_extension}_point_cloud.png')
     point_to_mesh.convert_point_cloud_to_mesh(pc, 128, save_file_name)
 

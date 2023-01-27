@@ -24,11 +24,14 @@ def load_mesh_into_meshlab(file_path):
 
 def meshlab_process(colors, normals, points, faces, save_path):
     ms = load_mesh_into_meshlab(save_path)
+    #ms.generate_surface_reconstruction_screened_poisson(depth=5, scale=1.1)
+    # ms.generate_surface_reconstruction_ball_pivoting()
     ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
     # generate normals
     # create texture using UV map and vertex colors
+    name = save_path.split("/")[-1].split('.')[0]
     ms.compute_texmap_from_color(
-        textname=f"my_texture_name")  # textname will be filename of a png, should not be a full path
+        textname=name)  # textname will be filename of a png, should not be a full path
     # texture file won't be saved until you save the mesh
     # ms.save_current_mesh(save_path)
     # save as obj
@@ -49,8 +52,8 @@ def add_color_save_meshlab(colors, normals, points, faces, save_path):
     # # generate normals
     # # m.compute_vertex_normals()
     # # m.compute_per_vertex_normals()
-    # ms = pymeshlab.MeshSet()
-    # ms.add_mesh(m, "pc_scan")
+    ms = pymeshlab.MeshSet()
+    ms.add_mesh(m, "pc_scan")
     ms.generate_surface_reconstruction_screened_poisson(depth=5, scale=1.1)
     # not familiar with the crop API, but I'm sure it's doable
     # now we generate UV map; there are a couple options here but this is a naive way

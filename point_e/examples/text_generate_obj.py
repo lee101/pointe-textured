@@ -60,10 +60,12 @@ def text_to_mesh(prompt, grid_size=3, save_file_name='mesh.ply'):
     # %%
     pc = sampler.output_to_point_clouds(samples)[0]
     fig = plot_point_cloud(pc, grid_size=grid_size, fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
+    img_name_no_extension = img_name_no_extension.split('/')[-1]
+
     fig.savefig(f'{img_name_no_extension}_point_cloud.png')
     point_to_mesh.convert_point_cloud_to_mesh(pc, 128, save_file_name)
 
 
 if __name__ == '__main__':
-    text_to_mesh('a toy soldier army sniper', grid_size=3, save_file_name='mesh-sniper.ply')
+    text_to_mesh('a toy soldier green camo army man', grid_size=3, save_file_name='mesh-army.ply')
     # convert_point_cloud_to_mesh('example_data/pc_corgi.npz', grid_size=32, save_file_name='corgi_mesh.ply')
