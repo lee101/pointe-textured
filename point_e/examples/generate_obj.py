@@ -50,7 +50,7 @@ def image_to_mesh(image, grid_size=3, save_file_name='mesh.ply', text=""):
         images.append(Image.open(f'{img_name_no_extension}{index}.png'))
         index += 1
     # # resize all images to 256
-    # images = [img.resize((256, 256)) for img in images]
+    images = [img.resize((256, 256)) for img in images]
     # Produce a sample from the model.
     samples = None
     # auto bfloat16
