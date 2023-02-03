@@ -24,6 +24,7 @@ def load_mesh_into_meshlab(file_path):
 
 def meshlab_process(colors, normals, points, faces, save_path):
     ms = load_mesh_into_meshlab(save_path)
+
     #ms.generate_surface_reconstruction_screened_poisson(depth=5, scale=1.1)
     # ms.generate_surface_reconstruction_ball_pivoting()
     ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()

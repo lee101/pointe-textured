@@ -127,7 +127,7 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
     # shell.plot()
     surf = cloud.reconstruct_surface()
     # close mesh
-    surf = surf.fill_holes(hole_size=1000)
+    #surf = surf.fill_holes(hole_size=1000)
     # remove duplicate points
     #surf = surf.remove_duplicate_points()
 
@@ -136,7 +136,7 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
     # remove non manifold edges
     #surf = surf.remove_non_manifold_edges()
     # smooth mesh
-    surf = surf.smooth(n_iter=10, relaxation_factor=0.1)
+    #surf = surf.smooth(n_iter=10, relaxation_factor=0.1)
     # fix normals
     surf = surf.compute_normals(auto_orient_normals=True)
     # check normals for being flipped
@@ -415,5 +415,6 @@ def convert_point_cloud_to_mesh_oldb(filename_or_pointcloud='example_data/pc_cor
 if __name__ == '__main__':
     # convert_point_cloud_to_mesh()
     convert_point_cloud_to_mesh(save_file_name='corgi_mesh_4.ply')
+    # convert_point_cloud_to_mesh(save_file_name='chair.ply')
     # convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_cube_stack.npz', grid_size=32)
     # convert_point_cloud_to_mesh_old(filename_or_pointcloud='example_data/pc_cube_stack.npz', grid_size=32)
