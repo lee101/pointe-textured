@@ -43,11 +43,12 @@ upsampler_model.load_state_dict(load_checkpoint('upsample', device))
 
 def image_to_mesh(image, grid_size=3, save_file_name='mesh.ply', text=""):
     npz_filename = save_file_name + ".npz"
+    img_name_no_extension = image.split('.')[0]
+
     if not Path(npz_filename).exists():
 
         # Load an image to condition on.
         img = Image.open(image)
-        img_name_no_extension = image.split('.')[0]
         images = [img]
         index = 0
         while Path(f'{img_name_no_extension}{index}.png').exists():

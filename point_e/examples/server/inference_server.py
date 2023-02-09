@@ -1,3 +1,6 @@
+import os
+import gradio as gr
+
 import sellerinfo
 
 # fastapi endpoints for text to 3d and for image to 3d
@@ -68,3 +71,25 @@ else:
     }
 
 stripe.api_key = stripe_keys["secret_key"]
+
+# photo to 3d route
+@app.post("/photo_to_3d")
+def get_photo_to_3d(photo: str):
+    return
+
+
+iface = gr.Interface(
+    fn=predict,
+    inputs=gr.Image(type='pil', label='Input Image'),
+    outputs=[
+        gr.Image(label='Depth'),
+        gr.Model3D(label='3D Model', clear_color=[0.0, 0.0, 0.0, 0.0]),
+        gr.File(label='Download 3D Model')
+    ],
+    examples=examples,
+    allow_flagging='never',
+    cache_examples=False,
+    title=title,
+    description=description
+)
+iface.launch()

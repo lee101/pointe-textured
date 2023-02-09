@@ -1,7 +1,7 @@
 import pymeshlab
 import pyvista as pv
 import numpy as np
-
+from loguru import logger
 
 def pyvista_mesh_to_meshlab_mesh(mesh):
     # get points
@@ -22,12 +22,61 @@ def load_mesh_into_meshlab(file_path):
     return ms
 
 
+def mesh_repair(ms):
+    # close holes
+    ms.repair_non_manifold_edges()
+
+    # ms.close_holes()
+    ms.meshing_remove_unreferenced_vertices()
+    ms.meshing_remove_duplicate_faces()
+    ms.meshing_remove_duplicate_vertices()
+    # ms.remove_isolated_pieces()
+    #ms.meshing_remove_connected_component_by_diameter(mincomponentdiag=pymeshlab.Percentage(0.1))
+    max_size_to_be_closed=600
+#    ms.meshing_close_holes(maxholesize=max_size_to_be_closed)
+    logger.info(f"Closing holes with max size {max_size_to_be_closed}")
+    ms.meshing_close_holes(maxholesize=max_size_to_be_closed)
+    logger.info(f"repair non manifoldednes")
+
+    ms.repair_non_manifold_edges()
+    logger.info(f"Closing holes with max size {max_size_to_be_closed}")
+
+    ms.meshing_close_holes(maxholesize=max_size_to_be_closed)
+    ms.repair_non_manifold_edges()
+    logger.info(f"Closing holes with max size 900")
+
+    ms.meshing_close_holes(maxholesize=900)
+
+    #ms.repair_non_manifold_edges() # todo tihs can create holes?
+    # logger.info(f"subdiv")
+
+    # subdivide catmul clark TOOD this crashes meshlab
+    # ms.meshing_surface_subdivision_catmull_clark()
+    # ms.simplification_edge_collapse_decimation(targetfacenum=100000)
+    # smooth
+    # ms.filter_laplacian_smooth() #todo
+
+    # ms.remove_degenerated_faces()
+    # ms.remove_degenerated_triangles()
+    # ms.remove_non_manifold_vertices()
+    # ms.remove_non_manifold_faces()
+    return ms
+
+def mesh_simplify_for_marching_cube_meshes(ms):
+    ms.simplification_edge_collapse_for_marching_cube_meshes()
+    return ms
+
+
 def meshlab_process(colors, normals, points, faces, save_path):
     ms = load_mesh_into_meshlab(save_path)
 
     #ms.generate_surface_reconstruction_screened_poisson(depth=5, scale=1.1)
-    # ms.generate_surface_reconstruction_ball_pivoting()
+    #ms.generate_surface_reconstruction_ball_pivoting()
     ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
+    # close holes in mesh
+    ms = mesh_repair(ms)
+
+
     # generate normals
     # create texture using UV map and vertex colors
     name = save_path.split("/")[-1].split('.')[0]
