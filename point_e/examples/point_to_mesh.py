@@ -2,13 +2,16 @@ import numpy as np
 import open3d
 import open3d as o3d
 import torch
+from loguru import logger
+from tqdm import tqdm
 
 from point_e.examples.draw_triangles import draw_triangles
 from point_e.examples.meshlab_add_color import meshlab_process
 from point_e.examples.open3d_mesh_process import open3d_process
 from point_e.models.download import load_checkpoint
 from point_e.models.configs import MODEL_CONFIGS, model_from_config
-from point_e.util.pc_to_mesh import marching_cubes_mesh
+from point_e.util.mesh import TriMesh
+from point_e.util.pc_to_mesh import marching_cubes_mesh, marching_cubes_mesh_no_model
 from point_e.util.point_cloud import PointCloud
 
 import pyvista as pv
@@ -25,7 +28,7 @@ model.load_state_dict(load_checkpoint(name, device))
 
 
 # Load a point cloud we want to convert into a mesh.
-def convert_point_cloud_to_mesh_old(filename_or_pointcloud='example_data/pc_corgi.npz', grid_size=32, save_file_name
+def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.npz', grid_size=32, save_file_name
 ='corgi_mesh.ply'):
     if isinstance(filename_or_pointcloud, str):
         pc = PointCloud.load(filename_or_pointcloud)
@@ -45,6 +48,34 @@ def convert_point_cloud_to_mesh_old(filename_or_pointcloud='example_data/pc_corg
     # Write the mesh to a PLY file to import into some other program.
     with open(save_file_name, 'wb') as f:
         mesh.write_ply(f)
+    logger.info("stuff")
+
+    mesh_vista = pv.PolyData(mesh.verts)
+    # set faces
+    mesh_vista.faces = mesh.faces
+    # set normals
+    mesh_vista.point_arrays['normals'] = mesh.normals
+    # mesh_vista = mesh_vista.compute_normals(auto_orient_normals=True) # recompute
+    surf = mesh_vista
+    logger.info("texture surf")
+    textured_surf = texture_surf_using_colored_pcd(surf, pc)
+    # surf.point_data['colors'] = colors.transpose()
+    # textured_surf.plot()
+    textured_surf = textured_surf.rotate_x(270)
+    textured_surf = ground(textured_surf)
+    logger.info("save")
+
+    textured_surf.save(save_file_name, texture='colors')
+    faces = []  # .reshape(-1, 4)[:, 1:]
+    for i in range(1, len(faces), 4):
+        faces.extend(faces[i:i + 3])
+    # faces = np.array(faces).reshape(-1, 3)
+    # delete every third face
+
+    # add_color_save_meshlab(colors, normals, textured_surf.points, faces, save_file_name)
+    logger.info("save obj")
+
+    save_an_obj(textured_surf, save_file_name)
 
 
 def pc_to_pointcloud(pc):
@@ -110,8 +141,88 @@ def fix_normals(save_file_name):
     pl.export_obj(save_file_name)
     # mesh.save(save_file_name)
 
+# def pyvista_marching_cubes(pointcloud, grid_size=32):
+#     grid = pv.UniformGrid(
+#         dimensions=(grid_size, grid_size, grid_size),
+#         origin=(0, 0, 0),
+#         spacing=(1 / grid_size, 1 / grid_size, 1 / grid_size),
+#     # spacing=(abs(x_min) / n * 2, abs(y_min) / n * 2, abs(z_min) / n * 2),
+#     # origin=(x_min, y_min, z_min),
+#     )
+#     values = np.zeros((grid_size, grid_size, grid_size))
+#     for i in range(grid_size):
+#         for j in range(grid_size):
+#             for k in range(grid_size):
+#                 # check if point is in point cloud
+#                 x = i / grid_size
+#                 y = j / grid_size
+#                 z = k / grid_size
+#                 point = np.array([x, y, z])
+#                 distances = np.linalg.norm(point - pointcloud.coords, axis=1)
+#                 values[i, j, k] = model(torch.tensor([i / grid_size, j / grid_size, k / grid_size]).to(device)).item()
+#     mesh = grid.contour([1], values, method='marching_cubes')
+def marching_cubes_mesh_creation(save_file_name, colorpc, grid_size=32, pc=None):
+    # load
+    input_mesh = pv.read(save_file_name)
+    # get the points
+    points = input_mesh.points
+    # get the faces
+    pc = PointCloud(points, {})
+    # pc.coords = points
+    # pc.channels = {}
+    # pc.channels['R'] = mesh.point_arrays['colors'][:, 0]
+    # pc.channels['G'] = mesh.point_arrays['colors'][:, 1]
+    # pc.channels['B'] = mesh.point_arrays['colors'][:, 2]
+    mesh: TriMesh = marching_cubes_mesh(
+        pc=pc,
+        model=model,
+        batch_size=4096,
+        grid_size=grid_size,  # increase to 128 for resolution used in evals
+        progress=True,
+    )
+    # Write the mesh to a PLY file to import into some other program.
+    with open(save_file_name + "2.ply", 'wb') as f:
+        mesh.write_ply(f)
+    # convert ply to obj
 
-def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.npz', grid_size=32, save_file_name
+    # pcd = pc_to_pointcloud(mesh.verts)
+    # # estimate normals
+    # pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+    # mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_delaunay(pcd)
+    # mesh.plot()
+    logger.info("stuff")
+
+    mesh_vista = pv.PolyData(mesh.verts)
+    # set faces
+    mesh_vista.faces = mesh.faces
+    # set normals
+    mesh_vista.point_arrays['normals'] = mesh.normals
+    # mesh_vista = mesh_vista.compute_normals(auto_orient_normals=True) # recompute
+    surf = mesh_vista
+    logger.info("texture surf")
+    textured_surf = texture_surf_using_colored_pcd(surf, colorpc)
+    # surf.point_data['colors'] = colors.transpose()
+    # textured_surf.plot()
+    textured_surf = textured_surf.rotate_x(270)
+    textured_surf = ground(textured_surf)
+    logger.info("save")
+
+    textured_surf.save(save_file_name, texture='colors')
+    faces = []  # .reshape(-1, 4)[:, 1:]
+    for i in range(1, len(faces), 4):
+        faces.extend(faces[i:i + 3])
+    # faces = np.array(faces).reshape(-1, 3)
+    # delete every third face
+
+    # add_color_save_meshlab(colors, normals, textured_surf.points, faces, save_file_name)
+    logger.info("save obj")
+
+    save_an_obj(textured_surf, save_file_name)
+
+
+
+def convert_point_cloud_to_mesh_newdelaney(filename_or_pointcloud='example_data/pc_corgi.npz', grid_size=32, save_file_name
 ='corgi_mesh.ply'):
     if isinstance(filename_or_pointcloud, str):
         pc = PointCloud.load(filename_or_pointcloud)
@@ -127,19 +238,21 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
 
     cloud = pv.PolyData(pc.coords)
     # cloud.plot()
-    volume = cloud.delaunay_3d(alpha=.06)  # todo search around this range
-    shell = volume.extract_geometry().triangulate()
-    shell = shell.decimate(.8).extract_surface().clean()
 
     # shell.plot()
-    # for alpha in tqdm(np.linspace(0, 0.2, 100)):
-    #
-    #     volume = cloud.delaunay_3d(alpha=alpha)
-    #     shell = volume.extract_geometry()
-    #     #shell.plot()
-    #     #take screenshot of shell
-    #     shell.plot(off_screen=True, screenshot=save_file_name + str(alpha) + ".png")
+    # shell = shell.decimate(.8).extract_surface().clean()
+    # shell.plot()
 
+    # shell.plot()
+    # for alpha in tqdm(np.linspace(0.03, 0.09, 10)):
+    # #
+    #     volume = cloud.delaunay_3d(alpha=alpha)
+    #     shell = volume.extract_geometry().triangulate()
+    # #     #shell.plot()
+    # #     #take screenshot of shell
+    #     shell.plot(off_screen=True, screenshot=save_file_name + str(alpha) + "-.png")
+    volume = cloud.delaunay_3d(alpha=.06)  # todo search around this range
+    shell = volume.extract_geometry().triangulate()
     # surf = shell.extract_surface()
     # volume = cloud.delaunay_3d(alpha=.06)
     # volume = volume.clean(tolerance=0.0001)
@@ -215,6 +328,14 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
     shell = shell.clean().subdivide_adaptive()
     # convert back to pc and do delaunay_3d again
     cloud = pv.PolyData(shell.points)
+
+    # for alpha in tqdm(np.linspace(0.03, 0.09, 10)):
+    # #
+    #     volume = cloud.delaunay_3d(alpha=alpha)
+    #     shell = volume.extract_geometry().triangulate()
+    # #     #shell.plot()
+    # #     #take screenshot of shell
+    #     shell.plot(off_screen=True, screenshot=save_file_name + str(alpha) + "--.png")
     volume = cloud.delaunay_3d(alpha=.06)  # todo search around this range
     shell = volume.extract_geometry()
     # shell.plot()
@@ -245,12 +366,20 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
 
     # loop subdivision to get better results
     # shell = shell.clean().subdivide(1, subfilter='butterfly')
-    shell = shell.clean().subdivide_adaptive()
+    shell = shell.clean().subdivide_adaptive(max_n_passes=2)
     # convert back to pc and do delaunay_3d again
     cloud = pv.PolyData(shell.points)
-    volume = cloud.delaunay_3d(alpha=.06)  # todo search around this range
+
+    # for alpha in tqdm(np.linspace(0.03, 0.09, 10)):
+    # #
+    #     volume = cloud.delaunay_3d(alpha=alpha)
+    #     shell = volume.extract_geometry().triangulate()
+    # #     #shell.plot()
+    # #     #take screenshot of shell
+    #     shell.plot(off_screen=True, screenshot=save_file_name + str(alpha) + "--.png")
+    volume = cloud.delaunay_3d(alpha=.068)  # todo search around this range
     shell = volume.extract_geometry()
-    shell.plot()
+
     shell.save(save_file_name)
     surf = shell
 
@@ -263,14 +392,19 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
     # # texture = np.zeros((sphere.n_points, 3), np.uint8)
     # get_reprojected_colors = surf.texture_map_to_plane(inplace=False)
     # texture_coords = surf.get_array('Texture Coordinates')
+    # repair the surface
+    # surf = surf.fill_holes()
+    # voxelize model
+    # surf = pv.voxelize(surf, density=surf.length/100, check_surface=False)
     textured_surf = texture_surf_using_colored_pcd(surf, pc)
     textured_surf.save(save_file_name, texture='colors')
 
     save_an_obj(textured_surf, save_file_name)
 
     meshlab_process(colors, normals, textured_surf.points, faces, save_file_name)
-
-
+    # marching cubes over the surface
+    # shell = shell.marching_cubes()
+    # marching_cubes_mesh_creation(save_file_name, pc)
 
     # open3d_process(colors, normals, textured_surf.points, faces, save_file_name)
     # open3d_process(save_file_name)

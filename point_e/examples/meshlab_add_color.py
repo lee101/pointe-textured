@@ -42,6 +42,8 @@ def mesh_repair(ms):
     logger.info(f"Closing holes with max size {max_size_to_be_closed}")
 
     ms.meshing_close_holes(maxholesize=max_size_to_be_closed)
+    logger.info(f"repair - delete self intersects")
+    # ms = remove_self_intersections(ms)
     ms.repair_non_manifold_edges()
     logger.info(f"Closing holes with max size 900")
 
@@ -66,6 +68,14 @@ def mesh_simplify_for_marching_cube_meshes(ms):
     ms.simplification_edge_collapse_for_marching_cube_meshes()
     return ms
 
+def remove_self_intersections(ms):
+    # remove self intersections
+    # ms.filter_remove_self_intersections()
+    ms.select_self_intersecting_faces()
+    ms.delete_selected_faces()
+    ms.select_problematic_faces()
+    ms.delete_selected_faces()
+    return ms
 
 def meshlab_process(colors, normals, points, faces, save_path):
     ms = load_mesh_into_meshlab(save_path)
