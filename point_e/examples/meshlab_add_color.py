@@ -66,8 +66,12 @@ def mesh_repair(ms):
 
 def mesh_simplify_for_marching_cube_meshes(ms):
     ms.simplification_edge_collapse_for_marching_cube_meshes()
+    ms.simplification_edge_collapse_for_marching_cube_meshes()
     return ms
 
+def mesh_simplify_decimation(ms):
+    ms.simplification_clustering_decimation()
+    return ms
 def remove_self_intersections(ms):
     # remove self intersections
     # ms.filter_remove_self_intersections()
@@ -77,12 +81,20 @@ def remove_self_intersections(ms):
     ms.delete_selected_faces()
     return ms
 
-def meshlab_process(colors, normals, points, faces, save_path):
+def meshlab_process(save_path):
     ms = load_mesh_into_meshlab(save_path)
 
     #ms.generate_surface_reconstruction_screened_poisson(depth=5, scale=1.1)
     #ms.generate_surface_reconstruction_ball_pivoting()
-    ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
+    try:
+        ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
+    except Exception as e:
+        logger.info(f"Error computing texcoord parametrization")
+        logger.error(e)
+        """Texture > Parametrization: Trivial Per-Triangle' (if you get an error about the inter-triangle border being too much increase the texture dimension)."""
+        ms.parametrization_trivial_per_triangle()
+        ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
+
     # close holes in mesh
     ms = mesh_repair(ms)
 
@@ -96,6 +108,30 @@ def meshlab_process(colors, normals, points, faces, save_path):
     # ms.save_current_mesh(save_path)
     # save as obj
     ms.save_current_mesh(save_path.replace(".ply", ".obj"))
+
+def meshlab_process_simplify_marching_cube_meshes(save_path):
+    ms = load_mesh_into_meshlab(save_path)
+    ms = mesh_simplify_for_marching_cube_meshes(ms)
+    try:
+        ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
+    except Exception as e:
+        logger.info(f"Error computing texcoord parametrization")
+        logger.error(e)
+        """Texture > Parametrization: Trivial Per-Triangle' (if you get an error about the inter-triangle border being too much increase the texture dimension)."""
+        ms.parametrization_trivial_per_triangle()
+        ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
+    # close holes in mesh
+    ms = mesh_repair(ms)
+
+    # generate normals
+    # create texture using UV map and vertex colors
+    name = save_path.split("/")[-1].split('.')[0] + "_simplified"
+    ms.compute_texmap_from_color(
+        textname=name)  # textname will be filename of a png, should not be a full path
+    # texture file won't be saved until you save the mesh
+    # ms.save_current_mesh(save_path)
+    # save as obj
+    ms.save_current_mesh(save_path.replace(".ply", "_simplified.obj"))
 
 def add_color_save_meshlab(colors, normals, points, faces, save_path):
     # open obj file in meshlab
@@ -114,7 +150,7 @@ def add_color_save_meshlab(colors, normals, points, faces, save_path):
     # # m.compute_per_vertex_normals()
     ms = pymeshlab.MeshSet()
     ms.add_mesh(m, "pc_scan")
-    ms.generate_surface_reconstruction_screened_poisson(depth=5, scale=1.1)
+    # ms.generate_surface_reconstruction_screened_poisson(depth=5, scale=1.1) # not doing poisson as its slow/bad
     # not familiar with the crop API, but I'm sure it's doable
     # now we generate UV map; there are a couple options here but this is a naive way
     ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
