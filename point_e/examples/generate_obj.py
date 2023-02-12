@@ -55,7 +55,7 @@ def image_to_mesh(image, grid_size=3, save_file_name='mesh.ply', text=""):
             images.append(Image.open(f'{img_name_no_extension}{index}.png'))
             index += 1
         # # resize all images to 256
-        images = [img.resize((256, 256)) for img in images]
+        images = [img.resize((256, 256)) for img in images] # Todo send all to device
         # Produce a sample from the model.
         samples = None
         # auto bfloat16
@@ -79,14 +79,14 @@ def image_to_mesh(image, grid_size=3, save_file_name='mesh.ply', text=""):
                     for x in itertools.islice(
                             tqdm(sampler.sample_batch_progressive(batch_size=1, model_kwargs=model_kwargs)),
                             190):  # randomly fails after 65 samples with OOM
-                        # if i > 125:
-                        #     # prev_pointcloud = sampler.output_to_point_clouds(samples)[0]
-                        #     current_sample = sampler.output_to_point_clouds(x)[0]
-                        #     combined = align_two_point_clouds(samples, current_sample)
-                        #     samples = combined
-                        # else:
-                        #     samples = sampler.output_to_point_clouds(x)[0]
-                        samples = sampler.output_to_point_clouds(x)[0]
+                        if i > 125:
+                            # prev_pointcloud = sampler.output_to_point_clouds(samples)[0]
+                            current_sample = sampler.output_to_point_clouds(x)[0]
+                            combined = align_two_point_clouds(samples, current_sample)
+                            samples = combined
+                        else:
+                            samples = sampler.output_to_point_clouds(x)[0]
+                        # samples = sampler.output_to_point_clouds(x)[0]
                         # 65 and 130 are the key areas
                         # fig = plot_point_cloud(samples, grid_size=grid_size,
                         #                        fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
@@ -117,7 +117,9 @@ def image_to_mesh(image, grid_size=3, save_file_name='mesh.ply', text=""):
     fig = plot_point_cloud(pc, grid_size=grid_size, fixed_bounds=((-0.75, -0.75, -0.75), (0.75, 0.75, 0.75)))
     img_name_no_extension = img_name_no_extension.split('/')[-1]
     fig.savefig(f'pics/{img_name_no_extension}_point_cloud.png')
-    point_to_mesh.convert_point_cloud_to_mesh(pc, 128, save_file_name)
+    # with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+    with torch.inference_mode():
+        point_to_mesh.convert_point_cloud_to_mesh(pc, 128, save_file_name)
 
 
 if __name__ == '__main__':

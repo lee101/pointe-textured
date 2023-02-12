@@ -9,6 +9,7 @@ from point_e.examples.draw_triangles import draw_triangles
 from point_e.examples.meshlab_add_color import meshlab_process, add_color_save_meshlab, \
     meshlab_process_simplify_marching_cube_meshes
 from point_e.examples.open3d_mesh_process import open3d_process
+from point_e.examples.utils import convert_float_to_bfloat16
 from point_e.models.download import load_checkpoint
 from point_e.models.configs import MODEL_CONFIGS, model_from_config
 from point_e.util.mesh import TriMesh
@@ -22,11 +23,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('creating SDF model...')
 name = 'sdf'
 model = model_from_config(MODEL_CONFIGS[name], device)
+# model = convert_float_to_bfloat16(model)
 model.eval()
 
 print('loading SDF model...')
 model.load_state_dict(load_checkpoint(name, device))
+# model = convert_float_to_bfloat16(model)
 
+model.eval()
 
 # Load a point cloud we want to convert into a mesh.
 def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.npz', grid_size=32, save_file_name
@@ -39,19 +43,25 @@ def convert_point_cloud_to_mesh(filename_or_pointcloud='example_data/pc_corgi.np
     # Plot the point cloud as a sanity check.
     # fig = plot_point_cloud(pc, grid_size=2)
     # Produce a mesh (with vertex colors)
-    for grid_size in range(8,128,2):
-        mesh = marching_cubes_mesh(
-            pc=pc,
-            model=model,
-            batch_size=4096,
-            grid_size=grid_size,  # increase to 128 for resolution used in evals
-            progress=True,
-        )
-        # Write the mesh to a PLY file to import into some other program.
-        with open(save_file_name + str(grid_size) +".ply", 'wb') as f:
-            mesh.write_ply(f)
-        mesh_vista = pv.read(save_file_name + str(grid_size) +".ply")
-        mesh_vista.plot(off_screen=True, screenshot=save_file_name + str(grid_size) +".png")
+    # for grid_size in range(8,128,2):
+    #     mesh = marching_cubes_mesh(
+    #         pc=pc,
+    #         model=model,
+    #         batch_size=4096,
+    #         grid_size=grid_size,  # increase to 128 for resolution used in evals
+    #         progress=True,
+    #     )
+    #     # Write the mesh to a PLY file to import into some other program.
+    #     with open(save_file_name + str(grid_size) +".ply", 'wb') as f:
+    #         mesh.write_ply(f)
+    #     mesh_vista = pv.read(save_file_name + str(grid_size) +".ply")
+    #     mesh_vista.plot(off_screen=True, screenshot=save_file_name + str(grid_size) +".png")
+    # log pc dtype
+    logger.info(f'pc dtype: {pc.coords.dtype}')
+    # convert pc to float32
+    pc.coords = pc.coords.astype(np.float32)
+    # lgo model dtype
+    # logger.info(f'model dtype: {model.dtype}')
     mesh = marching_cubes_mesh(
         pc=pc,
         model=model,
