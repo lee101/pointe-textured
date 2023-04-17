@@ -6,7 +6,6 @@ import sellerinfo
 # fastapi endpoints for text to 3d and for image to 3d
 
 config = {}
-config["webapp2_extras.sessions"] = dict(secret_key="93986c9cdd240540f70efaea56sfds345")
 from loguru import logger
 import stripe
 
