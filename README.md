@@ -1,5 +1,5 @@
 # Point·E
-This is an experimental fork of point E for creating and repairing meshing with AI.
+This is an experimental fork of point E for creating and repairing meshes with AI as well as traditional algorithms in meshlab and blender.
 
 Scripts extend point e to generate a mesh with textures from a point cloud suitable to be dragg/dropped into unity!
 
